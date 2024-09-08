@@ -1,0 +1,85 @@
+-- # of albums with certifications
+WITH title AS (
+    SELECT
+        Album_ID,  
+        CASE 
+            WHEN [US_sales_(m)] >= 10 THEN 'DIAMOND'
+            WHEN [US_sales_(m)] >= 2 THEN 'MULTI-PLATINUM'
+            WHEN [US_sales_(m)] >= 1 THEN 'PLATINUM'
+            WHEN [US_sales_(m)] >= 0.5 THEN 'GOLD'
+            ELSE 'NA'
+        END AS Sales_Certification
+    FROM Album
+)
+
+SELECT 
+    title.Sales_Certification,
+    COUNT(*) AS [Number of Albums] 
+FROM Album a
+JOIN title ON a.Album_ID = title.Album_ID
+GROUP BY title.Sales_Certification
+ORDER BY [Number of Albums] ASC;
+
+
+-- total tour attendance
+SELECT sum(Attendance) AS Total_Attendance FROM Tour
+
+-- breakdown by artist
+SELECT Artist.Artist, sum(Attendance) AS Total_Attendance 
+FROM Tour
+JOIN Artist Artist ON Artist.Artist_ID = Tour.Artist_ID
+GROUP BY Artist.Artist;
+
+-- breakdown by tour name
+SELECT Artist.Artist, Tour_name, sum(Attendance) AS Total_Attendance 
+FROM Tour 
+JOIN Artist Artist ON Artist.Artist_ID = Tour.Artist_ID
+GROUP BY Artist.Artist, Tour.Tour_name
+ORDER BY Artist.Artist ASC;
+
+
+-- top 3 cities
+SELECT TOP 3 sum(Show.Revenue_$) AS Total_Revenue, City.City 
+FROM Show
+JOIN Venue Venue ON Show.Venue_ID = Venue.Venue_ID
+JOIN City City ON Venue.City_ID = City.City_ID
+GROUP BY City.City
+ORDER BY Total_Revenue DESC;
+
+-- frequency of album type 
+Select Album_Type.Album_type, count(Album_Type.Album_type) AS Album_Frequency
+FROM Album 
+JOIN Album_Type Album_Type ON Album.Album_type_ID = Album_Type.Album_type_ID
+GROUP BY Album.Album_type_ID, Album_Type.Album_type;
+
+
+-- most popular artist from each country (determined by tour show revenue)
+
+WITH Revenue_Per_Artist AS (
+    SELECT 
+        Artist.Artist, 
+        Country.Country, 
+        SUM(Show.Revenue_$) AS Total_Revenue
+    FROM Artist
+    JOIN Tour ON Artist.Artist_ID = Tour.Artist_ID
+    JOIN Show ON Tour.Tour_ID = Show.Tour_ID
+    JOIN Venue ON Show.Venue_ID = Venue.Venue_ID
+    JOIN City ON Venue.City_ID = City.City_ID
+    JOIN Country ON City.Country_ID = Country.Country_ID
+    GROUP BY Artist.Artist, Country.Country
+),
+Ranked_Revenue AS (
+    SELECT
+        Artist,
+        Country,
+        Total_Revenue,
+        ROW_NUMBER() OVER (PARTITION BY Country ORDER BY Total_Revenue DESC) AS rn
+    FROM Revenue_Per_Artist
+)
+SELECT
+    Artist,
+    Country,
+    Total_Revenue
+FROM Ranked_Revenue
+WHERE rn = 1 AND Total_Revenue IS NOT NULL
+ORDER BY Country;
